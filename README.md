@@ -93,7 +93,7 @@ and install the Ardupilot Sik firmware in the usual way.
 
 For example, using the [SiK tools](https://github.com/ArduPilot/SiK):
 ```
-    python uploader.py --baudrate 115200 --port /dev/ttyUSB0 radio~hm_trp.ihx
+    python uploader.py --baudrate 115200 --port /dev/ttyUSB0 radio_hm_trp.ihx
 ```
 Or using a ground station such as Mission planner, see:
 [upgrading-radio-firmware](https://ardupilot.org/copter/docs/common-3dr-radio-advanced-configuration-and-technical-information.html#upgrading-radio-firmware).
