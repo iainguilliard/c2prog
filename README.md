@@ -1,4 +1,4 @@
-#c2prog
+# c2prog
 
 Use an Arduino to flash the Ardupilot bootloader to SiK radios via the C2 interface,
 if you dont have access to a Silicon Labs C2 programmer.
@@ -7,7 +7,7 @@ Based on the AVR code in https://github.com/x893/C2.Flash.
 Which in turn is based on the code examples provided in
 the orginal Si Labs application note, AN127 Rev. 1.1.
 
-##Connections
+## Connections
 
 ```
   Arduino        HM-TRP
@@ -36,7 +36,7 @@ to the Ardiuno 5V I/O pins.
 
 ![Ardiuno Hookup](ArduinoMega2560_with_HMTRP.jpg)
 
-##Building
+## Building
 
 Build the `c2prog.ino` file with an Ardiuno IDE and flash to the Arduino.
 The low level pin mappings should work with the Uno, Mega, Nano or Pro Mini, but other boards
@@ -58,7 +58,7 @@ void Pulse_C2CLK(void)
 }
 ```
 
-##Keys
+## Keys
 
 From a serial console:
 
@@ -79,7 +79,7 @@ From a serial console:
 
 
 
-##Instructions
+## Instructions
 
 1) Connect a serial console to the Arduino at 115200 baud.
 1) Press `D` to check Device ID: e.g. 1600 = Si100x, rev. A, 0000 = not connected.
