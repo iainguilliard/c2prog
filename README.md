@@ -1,9 +1,12 @@
 # c2prog
 
-Use an Arduino to flash the Ardupilot bootloader to SiK radios via the C2 interface,
-if you dont have access to a Silicon Labs C2 programmer.
+Use an Arduino to flash the Ardupilot bootloader to SiK radios via the C2 interface.
 
-Based on the AVR code in https://github.com/x893/C2.Flash.
+The Ardiuno sketch containts the SiK bootloader for HM-TRP based radios. Once the bootloader
+is flashed to the radio, the latest firmware can be installed via the USB or serial port in
+the usual way.
+
+Based on the AVR code within https://github.com/x893/C2.Flash.
 Which in turn is based on the code examples provided in
 the orginal Si Labs application note, AN127 Rev. 1.1.
 
@@ -38,25 +41,12 @@ to the Ardiuno 5V I/O pins.
 
 ## Building
 
-Build the `c2prog.ino` file with an Ardiuno IDE and flash to the Arduino.
+Build the `c2prog.ino` sketch with an Ardiuno IDE and flash to the Arduino.
 The low level pin mappings should work with the Uno, Mega, Nano or Pro Mini, but other boards
 may need to be remapped.
+The code is tested for 16 Mhz boards, but for other boards the timming may need to be adjusted.
+See [Porting](#porting).
 
-The timming for the C2CK pluse is the most critical, the code is tested for 16 Mhz boards,
-but for other frequencies the timing of `Pulse_C2CLK()` may need to be padded with additional NOP's:
-
-```
-//
-// Make pulse on C2CLK line
-//
-void Pulse_C2CLK(void)
-{
-  C2CK_PORT &= ~C2CK_BIT;
-  asm volatile("nop\n\t");
-  asm volatile("nop\n\t");
-  C2CK_PORT |= C2CK_BIT;
-}
-```
 
 ## Keys
 
@@ -95,10 +85,44 @@ For example, using the [SiK tools](https://github.com/ArduPilot/SiK):
 ```
     python uploader.py --baudrate 115200 --port /dev/ttyUSB0 radio_hm_trp.ihx
 ```
-Or using a ground station such as Mission planner, see:
+Or using a ground station such as Mission planner, see the Ardupilot docs:
 [upgrading-radio-firmware](https://ardupilot.org/copter/docs/common-3dr-radio-advanced-configuration-and-technical-information.html#upgrading-radio-firmware).
 
-The latest firmware can be downloaded from:
+The latest firmware can be downloaded from: https://firmware.ardupilot.org/SiK/
 
-https://firmware.ardupilot.org/SiK/
+## Porting
+
+The timming for the C2CK pluse is the most critical. The code is tested for 16 Mhz boards,
+but for other frequencies the timing of `Pulse_C2CLK()` may need to be padded with additional NOP's.
+
+```
+
+     C2CK line pulse timing
+
+     C2CK ---+--------\          /-------------\         /
+             |        |\        /|             |\       /
+             |        | \------/ |             | \-----/
+      driver |        |          |             |
+        on ->+<------>+<- t_CL ->+<-- t_CH --->+
+               >40ns   80ns - 5us    >120ns
+
+ ```
+To generate C2CK clock strobes with a microcontroller-based programmer:
+
+   1. Turn the C2CK driver on.
+   2. Wait at least 40 ns. This helps ensure C2D data setup time.
+   3. Force C2CK low. Ensure interrupts are disabled at this point.
+   4. Wait between 80 and 5000 ns.
+   5. Force C2CK high.
+   6. Wait at least 120 ns. This helps ensure C2D data valid time.
+
+```
+void Pulse_C2CLK(void)
+{
+  C2CK_PORT &= ~C2CK_BIT;
+  asm volatile("nop\n\t");
+  asm volatile("nop\n\t");
+  C2CK_PORT |= C2CK_BIT;
+}
+```
 

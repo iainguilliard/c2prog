@@ -33,7 +33,7 @@
 // I/O pins including C2CK and C2D are 5V tolerant
 
 
-const char *startmessage = R"(
+void start_mesg() { Serial.print(F(R"(
 
 
                 c2prog
@@ -54,9 +54,9 @@ Flash Ardupilot bootloader to SiK radios via C2 interface:
 
   Warning! VDD_MCU is NOT 5V tolerant.
  
-)";
+)"));}
 
-const char *keys =  R"(
+void *keys_mesg() { Serial.print(F(R"(
 Keys:
     D : Get Device ID
     E : Erase Flash
@@ -69,9 +69,9 @@ Keys:
         LL = length in hex, 0-256 bytes
         bb..bb = LL hex bytes to write
 
-)";
+)"));}
 
-const char *instructions =  R"(
+void instructions_mesg() { Serial.print(F(R"(
 Instructions:
   1) Connect Ardiuno to Sik board C2 interface as shown in the diagram.
   2) Check Device ID. e.g. 1600 = Si100x, rev. A, 0000 = not connected.
@@ -79,7 +79,7 @@ Instructions:
   4) Burn bootloader.
   5) Verify bootloader (lock byte is not flashed, so ignor failure at address 0xFBFF).
 
-)";
+)"));}
 
 // Ardiuno Pins to C2 interface
 // ----------------------------
@@ -200,7 +200,7 @@ byte cmdPackageGet;
 
 #define STRINGIFY(...) #__VA_ARGS__
 
-char *bootloader_hex = STRINGIFY(
+const char bootloader_hex[] PROGMEM  = STRINGIFY(
     :0600000002009B02040354
     :03000B0002040BE1
     :03001300020413D1
@@ -363,9 +363,9 @@ void setup()
   delay(10);
   
   Serial.begin(115200);
-  Serial.print(startmessage);
-  Serial.print(keys);
-  Serial.print(instructions);
+  start_mesg();
+  keys_mesg();
+  instructions_mesg();
   Serial.print("Device ID: ");
   C2_Reset();
   C2_Device_ID();
@@ -453,7 +453,7 @@ void loop()
     for(;;) {
       
         byte type = char2byte(data_ptr + 7);
-        if (data_ptr[0] != ':') {
+        if (pgm_read_byte(data_ptr) != ':') {
           
             pass = 0;
             Serial.println("\nERROR: Hex file format\n");
@@ -525,7 +525,7 @@ void loop()
             PutByte(addr_hi);
             PutByte(addr_lo);
             Serial.print(" Failed at byte: ");
-            PutByte(char2byte(i));
+            PutByte(i);
             Serial.print(", Flash byte ");
             PutByte(verify_buffer[i]);
             Serial.print(" != ihex byte: ");
@@ -548,10 +548,10 @@ void loop()
     }
   } else if (c == 'V') {
     Serial.println("\nVerifing hex data in flash:");
-    char *data_ptr = bootloader_hex;
+    const char *data_ptr = bootloader_hex;
     for(;;) {
         byte type = char2byte(data_ptr + 7);
-        if (data_ptr[0] != ':') {
+        if (pgm_read_byte(data_ptr) != ':') {
             Serial.println("\nERROR: Hex file format\n");
             break;
         }
@@ -600,7 +600,7 @@ void loop()
           PutByte(verify_buffer[i]);
           if (verify_buffer[i] != cmdPackage[3+i]) {
             Serial.print("\nFail verify at byte ");
-            PutByte(char2byte(i));
+            PutByte(i);
             Serial.print(", Flash byte ");
             PutByte(verify_buffer[i]);
             Serial.print(" != ihex byte ");
@@ -615,6 +615,7 @@ void loop()
     Serial.println("\nVerifing ihex data in flash: complete\n");
   } else if (c == 'E') {
     Serial.println("\nErasing flash:\n");
+    C2_Reset();
     C2_Erase_Flash_03();
     Serial.print("C2_RESPONSE: ");
     PutByte(C2_RESPONSE);
@@ -631,8 +632,8 @@ void loop()
 
 uint8_t char2byte(char *ptr)
 {
-    byte b =char2hex(*ptr) << 4;
-    b |= char2hex(*(ptr + 1));
+    byte b =char2hex(pgm_read_byte(ptr)) << 4;
+    b |= char2hex(pgm_read_byte(ptr + 1));
     return b;
 }
 
@@ -1289,6 +1290,21 @@ void C2_Erase_Flash_Sector(void)
 //
 // Make RESET
 //
+//   C2CK ----\              /----------\         /
+//            |\            /|          |\       /
+//            | \----------/ |          | \-----/
+//     driver |              |          |
+//       on ->+<--- t_RD --->+<- t_SD -+
+//                  >20us        >2us
+//
+// To generate the reset timing:
+//   1. Turn the C2CK driver on.
+//   2. Force C2CK low.
+//   3. Wait at least 20 μs.
+//   4. Force C2CK high.
+//   5. Wait at least 2 μs.
+//   6. (Optional) Turn the C2CK driver off.
+//
 byte C2_Reset(void)
 {
   cli();
@@ -1303,6 +1319,21 @@ byte C2_Reset(void)
 
 //
 // Make pulse on C2CLK line
+//
+//   C2CK ---+--------\          /-------------\         /
+//           |        |\        /|             |\       /
+//           |        | \------/ |             | \-----/
+//    driver |        |          |             |
+//      on ->+<------>+<- t_CL ->+<-- t_CH --->+
+//             >40ns   80ns - 5us    >120ns
+//
+// To generate C2CK clock strobes with a microcontroller-based programmer:
+//   1. Turn the C2CK driver on.
+//   2. Wait at least 40 ns. This helps ensure C2D data setup time.
+//   3. Force C2CK low. Ensure interrupts are disabled at this point.
+//   4. Wait between 80 and 5000 ns.
+//   5. Force C2CK high.
+//   6. Wait at least 120 ns. This helps ensure C2D data valid time.
 //
 void Pulse_C2CLK(void)
 {
